@@ -1,4 +1,6 @@
 include/*
 bin/*
+config/*
+vc140.pdb
 
 .vscode

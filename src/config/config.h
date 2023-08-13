@@ -3,10 +3,11 @@
 #pragma once
 
 #include "../util/crypto.h"
-#include "../database/database.h"
 
-int get_server_port_config();
+#include <assert.h>
 
-db_connection_info_t get_db_connection_config();
+char* get_decrypted_config(const char* filename);
+BOOL read_file_into_memory(const char *filename, BYTE **data, DWORD *size);
+BOOL write_data_to_file(const char *filename, BYTE *data, DWORD size);
 
 #endif // _CONFIG_H

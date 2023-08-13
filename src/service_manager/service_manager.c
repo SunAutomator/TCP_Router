@@ -14,13 +14,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv) {
         return;
     }
 
-    // Connect to the database
-    db_connection_info_t connection_info = get_db_connection_config();
-    db_conn = db_connect(&connection_info);
-    if (db_conn == NULL) {
-        printf("Database connection failed\n");
-        return;
-    }
+    initialize_database();
 
     // Inform the service control manager that the service is running
     SERVICE_STATUS status = {0};
@@ -28,16 +22,7 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv) {
     status.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus(hStatus, &status);
 
-    // thread {
-
-    // Create a server socket and bind it to the specified port
-    int port = get_server_port_config();
-    server = tcp_server_create(port);
-    if (server == NULL) {
-        printf("Server creation failed\n");
-        db_disconnect(db_conn);
-        return;
-    }
+    initialize_server();
 
     // Perform the server operations
     // loop {
@@ -55,8 +40,6 @@ VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv) {
     
     record_response_in_database(db_conn, message, NULL);
     // } loop
-
-    // } thread
 }
 
 // Control handler function
@@ -65,6 +48,7 @@ VOID WINAPI ServiceCtrlHandler(DWORD fdwControl) {
         case SERVICE_CONTROL_SHUTDOWN:
             tcp_server_destroy(server);
             db_disconnect(db_conn);
+            close_logger();
             break;
         default:
             break;
@@ -72,6 +56,9 @@ VOID WINAPI ServiceCtrlHandler(DWORD fdwControl) {
 }
 
 int initialize_service(int argc, char *argv[]) {
+    // Initialize the logger
+    init_logger();
+
     // Register the handler function for the service
     SERVICE_TABLE_ENTRY serviceTable[] = {
         { "TCP_Router", ServiceMain },
@@ -85,4 +72,54 @@ int initialize_service(int argc, char *argv[]) {
     }
 
     return EXIT_SUCCESS;
+}
+
+void initialize_database() {
+    // Read database configuration file
+    char* db_config_data = get_decrypted_config("repository.config");
+    db_connection_info_t connection_info;
+    if (db_config_data) {
+        if (sscanf(db_config_data, "%s %d %s %s %s", connection_info.host, &connection_info.port,
+               connection_info.user, connection_info.password, connection_info.database) != 5) {
+            // Handle parsing error
+            free(db_config_data);
+            printf("Database configuration file is corrupted\n");
+            write_log("Database configuration file is corrupted");
+            return;
+        }
+        free(db_config_data);
+    }
+
+    // Connect to the database
+    db_conn = db_connect(&connection_info);
+    if (db_conn == NULL) {
+        printf("Database connection failed\n");
+        write_log("Database connection failed");
+        return;
+    }
+}
+
+void initialize_server() {
+    // Read server configuration file
+    char* port_config_data = get_decrypted_config("server.config");
+    int port;
+    if (port_config_data) {
+        if(sscanf(port_config_data, "%d", &port)) {
+            // Handle parsing error
+            free(port_config_data);
+            printf("Server configuration file is corrupted\n");
+            write_log("Server configuration file is corrupted");
+            return;
+        }
+        free(port_config_data);
+    }
+
+    // Create a server socket and bind it to the specified port
+    server = tcp_server_create(port);
+    if (server == NULL) {
+        printf("Server creation failed\n");
+        write_log("Server creation failed");
+        db_disconnect(db_conn);
+        return;
+    }
 }

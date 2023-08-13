@@ -5,16 +5,14 @@
 #include "../tcp_server/tcp_server.h"
 #include "../database/database.h"
 #include "../config/config.h"
+#include "../logger/logger.h"
 
 #include <windows.h>
-
-typedef struct ServiceContext {
-    TcpServer *server;
-    DatabaseConnection db_conn;
-} ServiceContext;
 
 VOID WINAPI ServiceMain(DWORD dwArgc, LPTSTR *lpszArgv);
 VOID WINAPI ServiceCtrlHandler(DWORD fdwControl);
 int initialize_service(int argc, char *argv[]);
+void initialize_database();
+void initialize_server();
 
 #endif // _SERVICE_MANAGER_H_
